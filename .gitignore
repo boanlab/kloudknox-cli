@@ -1,0 +1,7 @@
+kloudknox-cli/bin/
+tests/artifacts/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

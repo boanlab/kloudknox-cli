@@ -1,0 +1,122 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    boanlab.com/app: kloudknox
+  name: kloudknox
+  namespace: kloudknox
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    boanlab.com/app: kloudknox
+  name: kloudknox
+  namespace: kloudknox
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kloudknox
+  namespace: kloudknox
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    boanlab.com/app: kloudknox
+  name: kloudknox
+  namespace: kloudknox
+spec:
+  selector:
+    matchLabels:
+      boanlab.com/app: kloudknox
+  template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/kloudknox: unconfined
+      labels:
+        boanlab.com/app: kloudknox
+    spec:
+      containers:
+      - name: kloudknox
+        image: boanlab/kloudknox:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - --logLevel=info
+        - --cgroupDir=/mnt/sys/fs/cgroup
+        - --procDir=/mnt/proc
+        env:
+        - name: KLOUDKNOX_NODENAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        ports:
+        - containerPort: 36890
+        securityContext:
+          privileged: false
+          capabilities:
+            drop: 
+              - ALL
+            add: 
+              - SYS_ADMIN    # eBPF (before 5.8)
+              - NET_ADMIN    # Cgroup-BPF
+              - MAC_ADMIN    # AppArmor
+              - SYS_PTRACE   # BTF
+              - SYS_RESOURCE # eBPF Map
+              - BPF          # eBPF (after 5.8)
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/run/containerd/containerd.sock
+          name: containerd-sock-path
+          readOnly: true
+        - mountPath: /sys/kernel/security
+          name: sys-kernel-security-path
+        - mountPath: /sys/kernel/debug
+          name: sys-kernel-debug-path
+        - mountPath: /etc/apparmor.d
+          name: etc-apparmor-d-path
+        - mountPath: /mnt/sys/fs/cgroup
+          name: cgroup-path
+        - mountPath: /mnt/proc
+          name: proc-path
+          readOnly: true
+      serviceAccountName: kloudknox
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Always
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/run/containerd/containerd.sock
+          type: Socket
+        name: containerd-sock-path
+      - hostPath:
+          path: /sys/kernel/security
+          type: Directory
+        name: sys-kernel-security-path
+      - hostPath:
+          path: /sys/kernel/debug
+          type: Directory
+        name: sys-kernel-debug-path
+      - hostPath:
+          path: /etc/apparmor.d
+          type: DirectoryOrCreate
+        name: etc-apparmor-d-path
+      - hostPath:
+          path: /sys/fs/cgroup
+          type: Directory
+        name: cgroup-path
+      - hostPath:
+          path: /proc
+          type: Directory
+        name: proc-path

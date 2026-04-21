@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Invalid KloudKnoxPolicy: missing required spec.selector.
+# Must be rejected by 'kkctl policy validate'.
+apiVersion: security.boanlab.com/v1
+kind: KloudKnoxPolicy
+metadata:
+  name: clitest-invalid
+spec:
+  process:
+    - path: /bin/sleep
+  action: Block

@@ -1,0 +1,196 @@
+# Not needed in BPF-LSM mode; retained for AppArmor fallback nodes.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kloudknox
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: kloudknox-apparmor-webhook-issuer
+  namespace: kloudknox
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kloudknox-apparmor-webhook-cert
+  namespace: kloudknox
+spec:
+  secretName: kloudknox-apparmor-webhook-certs
+  duration: 8760h    # 365d
+  renewBefore: 720h  # 30d
+  dnsNames:
+    - kloudknox-apparmor-webhook
+    - kloudknox-apparmor-webhook.kloudknox
+    - kloudknox-apparmor-webhook.kloudknox.svc
+    - kloudknox-apparmor-webhook.kloudknox.svc.cluster.local
+  issuerRef:
+    name: kloudknox-apparmor-webhook-issuer
+    kind: Issuer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kloudknox-apparmor-webhook
+  namespace: kloudknox
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kloudknox-apparmor-webhook-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/status"]
+    verbs: ["patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kloudknox-apparmor-webhook-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kloudknox-apparmor-webhook-role
+subjects:
+  - kind: ServiceAccount
+    name: kloudknox-apparmor-webhook
+    namespace: kloudknox
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kloudknox-apparmor-webhook-config
+  namespace: kloudknox
+data:
+  config.yaml: |
+    webhook:
+      port: 9443
+      certDir: /etc/webhook/certs
+      certFile: tls.crt
+      keyFile: tls.key
+      host: kloudknox-apparmor-webhook
+      path: /etc/apparmor
+      failurePolicy: Ignore
+    kloudknox:
+      defaultProfile: kloudknox-default
+      annotationKey: container.apparmor.security.beta.kubernetes.io
+      annotationPrefix: localhost/
+      enableSecurityContext: true
+      k8sVersion: ""  # Empty = auto-detect (default to annotation-based for K8s < 1.30)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kloudknox-apparmor-webhook
+  namespace: kloudknox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kloudknox-apparmor-webhook
+  template:
+    metadata:
+      labels:
+        app: kloudknox-apparmor-webhook
+    spec:
+      serviceAccountName: kloudknox-apparmor-webhook
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: webhook
+          image: boanlab/kloudknox-apparmor-webhook:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9443
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/webhook/certs
+              readOnly: true
+            - name: config
+              mountPath: /etc/webhook/config
+              readOnly: true
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+      volumes:
+        - name: certs
+          secret:
+            secretName: kloudknox-apparmor-webhook-certs
+        - name: config
+          configMap:
+            name: kloudknox-apparmor-webhook-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kloudknox-apparmor-webhook
+  namespace: kloudknox
+spec:
+  selector:
+    app: kloudknox-apparmor-webhook
+  ports:
+    - port: 443
+      targetPort: 9443
+      protocol: TCP
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: kloudknox-apparmor-webhook
+  annotations:
+    cert-manager.io/inject-ca-from: kloudknox/kloudknox-apparmor-webhook-cert
+webhooks:
+  - name: apparmor.workload.boanlab.com
+    clientConfig:
+      service:
+        name: kloudknox-apparmor-webhook
+        namespace: kloudknox
+        path: /etc/apparmor
+    rules:
+      - operations: ["CREATE"]
+        apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        resources: ["deployments", "statefulsets", "daemonsets"]
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
+    namespaceSelector:
+      matchLabels:
+        kloudknox-inject: enabled
+  - name: apparmor.pod.boanlab.com
+    clientConfig:
+      service:
+        name: kloudknox-apparmor-webhook
+        namespace: kloudknox
+        path: /etc/apparmor
+    rules:
+      - operations: ["CREATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
+    namespaceSelector:
+      matchLabels:
+        kloudknox-inject: enabled

@@ -1,0 +1,115 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kloudknox
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    boanlab.com/app: kloudknox-relay-server
+  name: kloudknox-relay-server
+  namespace: kloudknox
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kloudknox-relay-server-role
+  namespace: kloudknox
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kloudknox-relay-server-rolebinding
+  namespace: kloudknox
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kloudknox-relay-server-role
+subjects:
+- kind: ServiceAccount
+  name: kloudknox-relay-server
+  namespace: kloudknox
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kloudknox-relay-server
+  namespace: kloudknox
+  labels:
+    boanlab.com/app: kloudknox-relay-server
+spec:
+  type: ClusterIP
+  selector:
+    boanlab.com/app: kloudknox-relay-server
+  ports:
+  - name: grpc
+    port: 33900
+    targetPort: grpc
+    protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kloudknox-relay-server
+  namespace: kloudknox
+  labels:
+    boanlab.com/app: kloudknox-relay-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      boanlab.com/app: kloudknox-relay-server
+  template:
+    metadata:
+      labels:
+        boanlab.com/app: kloudknox-relay-server
+    spec:
+      serviceAccountName: kloudknox-relay-server
+      terminationGracePeriodSeconds: 15
+      containers:
+      - name: relay-server
+        image: boanlab/kloudknox-relay-server:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: grpc
+          containerPort: 33900
+          protocol: TCP
+        env:
+        - name: RELAY_KUBENAMESPACE
+          value: "kloudknox"
+        - name: RELAY_KUBELABELSELECTOR
+          value: "boanlab.com/app=kloudknox"
+        - name: RELAY_KUBEGRPCPORT
+          value: "36890"
+        - name: RELAY_PORT
+          value: "33900"
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault

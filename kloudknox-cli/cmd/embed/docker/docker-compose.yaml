@@ -1,0 +1,38 @@
+version: "3.8"
+
+# Run KloudKnox itself as a Docker container in docker-only mode.
+# See the docker-mode guide: https://github.com/boanlab/KloudKnox/blob/main/getting-started/docker-mode.md
+
+services:
+  kloudknox:
+    image: ghcr.io/boanlab/kloudknox:latest
+    container_name: kloudknox
+    restart: unless-stopped
+    pid: host
+    network_mode: host
+    privileged: true
+    command:
+      - -mode=docker
+      - -dockerEndpoint=unix:///var/run/docker.sock
+      - -policyDir=/etc/kloudknox/policies
+      - -defaultNamespace=docker
+      - -logPath=stdout
+    volumes:
+      # Docker Engine API (read-only is sufficient — KloudKnox only inspects).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # BPF / LSM surfaces.
+      - /sys/kernel/security:/sys/kernel/security
+      - /sys/fs/bpf:/sys/fs/bpf:rshared
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      # AppArmor profile loading (omit on pure BPF-LSM hosts).
+      - /etc/apparmor.d:/etc/apparmor.d
+      # Policy directory watched by PolicyFileLoader.
+      - /etc/kloudknox/policies:/etc/kloudknox/policies:ro
+    cap_add:
+      - SYS_ADMIN
+      - BPF
+      - PERFMON
+      - NET_ADMIN
+      - MAC_ADMIN
+    security_opt:
+      - apparmor=unconfined

@@ -1,0 +1,20 @@
+header:
+  license:
+    spdx-id: Apache-2.0
+    copyright-owner: BoanLab @ Dankook University
+    content: |
+      SPDX-License-Identifier: Apache-2.0
+
+  paths:
+    - "**/*.go"
+    - "**/Makefile"
+    - "**/Dockerfile"
+
+  paths-ignore:
+    - "kloudknox-cli/cmd/embed/k8s/*"
+
+  comment: on-failure
+
+dependency:
+  files:
+    - kloudknox-cli/go.mod

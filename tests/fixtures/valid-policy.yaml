@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Valid KloudKnoxPolicy used by the cli test (validate + apply paths).
+apiVersion: security.boanlab.com/v1
+kind: KloudKnoxPolicy
+metadata:
+  name: clitest-valid
+spec:
+  selector:
+    container: ubuntu-1
+  process:
+    - path: /bin/sleep
+  action: Block
