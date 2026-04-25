@@ -25,14 +25,25 @@ func runGet(args []string) error {
 	outFlag := fs.String("o", "", "output format: table|wide|json|yaml (overrides global -o)")
 	policyDir := fs.String("policy-dir", kloudknoxPolicyDir, "policy directory (docker mode)")
 	allNS := fs.Bool("A", false, "list across all namespaces (k8s mode)")
+
+	// Hoist the resource kind so users can write `kkctl get policies -A -o wide`.
+	// Go's flag package stops parsing at the first positional, which would
+	// otherwise leave `-A` and `-o wide` unparsed.
+	var kind string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		kind = strings.ToLower(args[0])
+		args = args[1:]
+	}
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	rest := fs.Args()
-	if len(rest) == 0 {
-		return errors.New("get: usage: kkctl get policies|nodes")
+	if kind == "" {
+		rest := fs.Args()
+		if len(rest) == 0 {
+			return errors.New("get: usage: kkctl get policies|nodes")
+		}
+		kind = strings.ToLower(rest[0])
 	}
-	kind := strings.ToLower(rest[0])
 
 	out := resolvedOutput()
 	if *outFlag != "" {
@@ -53,6 +64,7 @@ type policySummary struct {
 	NamespaceName string `json:"NamespaceName"`
 	PolicyName    string `json:"PolicyName"`
 	Action        string `json:"Action"`
+	Status        string `json:"Status"`
 	Process       []any  `json:"Process"`
 	File          []any  `json:"File"`
 	Network       []any  `json:"Network"`
@@ -158,6 +170,11 @@ func summarizeUnstructured(obj map[string]any) policySummary {
 			s.Network = v
 		}
 	}
+	if st, ok := obj["status"].(map[string]any); ok {
+		if v, ok := st["status"].(string); ok {
+			s.Status = v
+		}
+	}
 	return s
 }
 
@@ -176,18 +193,19 @@ func renderPolicies(policies []policySummary, out string) error {
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	if out == "wide" {
-		_, _ = fmt.Fprintln(tw, "NAMESPACE\tNAME\tACTION\tPROCESS\tFILE\tNETWORK")
+		_, _ = fmt.Fprintln(tw, "NAMESPACE\tNAME\tACTION\tSTATUS\tPROCESS\tFILE\tNETWORK")
 	} else {
-		_, _ = fmt.Fprintln(tw, "NAMESPACE\tNAME\tACTION")
+		_, _ = fmt.Fprintln(tw, "NAMESPACE\tNAME\tACTION\tSTATUS")
 	}
 	for _, p := range policies {
 		if out == "wide" {
-			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d\n",
+			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%d\t%d\n",
 				emptyAsDash(p.NamespaceName), p.PolicyName, emptyAsDash(p.Action),
-				len(p.Process), len(p.File), len(p.Network))
+				emptyAsDash(p.Status), len(p.Process), len(p.File), len(p.Network))
 		} else {
-			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n",
-				emptyAsDash(p.NamespaceName), p.PolicyName, emptyAsDash(p.Action))
+			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+				emptyAsDash(p.NamespaceName), p.PolicyName, emptyAsDash(p.Action),
+				emptyAsDash(p.Status))
 		}
 	}
 	return tw.Flush()
