@@ -23,6 +23,14 @@ make                 # builds bin/kkctl
 make install-kkctl   # installs kkctl to $GOBIN (or $HOME/go/bin)
 ```
 
+> **Note:** `make install-kkctl` writes `kkctl` to `$GOBIN` (or `$HOME/go/bin`), which is not on `sudo`'s `secure_path`. Install into a system path instead:
+>
+> ```bash
+> sudo install -m 0755 bin/kkctl /usr/local/bin/kkctl
+> ```
+>
+> Or preserve `$PATH` per call: `sudo -E env PATH=$PATH kkctl probe`.
+
 The `kkctl install` command embeds KloudKnox deployment manifests into the binary via `go:embed`. The committed copies under `kloudknox-cli/cmd/embed/k8s/` are snapshots of the authoritative YAML in the [boanlab/KloudKnox](https://github.com/boanlab/KloudKnox) repo under `deployments/`. Refresh them from a specific ref with:
 
 ```bash
