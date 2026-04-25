@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 // Version is the CLI version string shown by `kkctl version`.
@@ -42,6 +43,11 @@ func Execute() {
 
 	verb := rest[0]
 	args := rest[1:]
+
+	if msg := globalFlagPositionHint(args); msg != "" {
+		fmt.Fprintln(os.Stderr, "error:", msg)
+		os.Exit(2)
+	}
 
 	var err error
 	switch verb {
@@ -92,6 +98,32 @@ func Execute() {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+// globalFlagPositionHint returns a friendly error message when a known global
+// flag appears after the verb. The standard flag package stops parsing at the
+// first positional, so a global like `--env` placed after the verb is passed
+// through to the verb's FlagSet and reported as an unknown flag.
+//
+// `-o` is intentionally excluded — verb handlers also accept it.
+func globalFlagPositionHint(args []string) string {
+	globals := map[string]bool{
+		"--env":          true,
+		"--kubeconfig":   true,
+		"--kube-context": true,
+		"--namespace":    true,
+		"--server":       true,
+	}
+	for _, a := range args {
+		token := a
+		if idx := strings.Index(a, "="); idx >= 0 {
+			token = a[:idx]
+		}
+		if globals[token] {
+			return fmt.Sprintf("%s is a global flag — place it before the verb (e.g. `kkctl %s ... <verb>`)", token, token)
+		}
+	}
+	return ""
 }
 
 func runCompletion(args []string) error {
