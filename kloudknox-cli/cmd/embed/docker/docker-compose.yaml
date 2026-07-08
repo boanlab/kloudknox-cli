@@ -5,7 +5,7 @@ version: "3.8"
 
 services:
   kloudknox:
-    image: ghcr.io/boanlab/kloudknox:latest
+    image: boanlab/kloudknox:latest
     container_name: kloudknox
     restart: unless-stopped
     pid: host

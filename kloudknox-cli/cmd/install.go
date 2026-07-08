@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	defaultImage         = "ghcr.io/boanlab/kloudknox:latest"
+	defaultImage         = "boanlab/kloudknox:latest"
 	kloudknoxContainer   = "kloudknox"
 	kloudknoxPolicyDir   = "/etc/kloudknox/policies"
 	kloudknoxComposeFile = "/etc/kloudknox/docker-compose.yaml"
@@ -71,10 +71,7 @@ func installK8s(ctx context.Context, img string, wait bool, skipWebhook bool) er
 	for _, raw := range k8sManifestsFor(skipWebhook) {
 		if img != defaultImage {
 			raw = bytes.ReplaceAll(raw,
-				[]byte("boanlab/kloudknox:latest"),
-				[]byte(img))
-			raw = bytes.ReplaceAll(raw,
-				[]byte("ghcr.io/boanlab/kloudknox:latest"),
+				[]byte(defaultImage),
 				[]byte(img))
 		}
 		docs, err := splitYAMLDocs(raw)
@@ -105,7 +102,7 @@ func installDocker(ctx context.Context, img string) error {
 	}
 
 	composeData := bytes.ReplaceAll(dockerComposeYAML,
-		[]byte("ghcr.io/boanlab/kloudknox:latest"), []byte(img))
+		[]byte(defaultImage), []byte(img))
 	if err := os.WriteFile(kloudknoxComposeFile, composeData, 0o600); err != nil {
 		return fmt.Errorf("install: write compose file: %w", err)
 	}
