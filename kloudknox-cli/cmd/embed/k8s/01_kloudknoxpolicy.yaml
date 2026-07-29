@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: kloudknoxpolicies.security.boanlab.com
 spec:
   group: security.boanlab.com
@@ -89,9 +89,51 @@ spec:
                   - name
                   type: object
                 type: array
+              file:
+                items:
+                  description: |-
+                    FileRule restricts file-system access within matched pods.
+                    Exactly one of Path or Dir must be set; Recursive is only valid with Dir.
+                  properties:
+                    action:
+                      enum:
+                      - Allow
+                      - Audit
+                      - Block
+                      type: string
+                    dir:
+                      description: Dir is the absolute directory prefix to match (must
+                        end with /).
+                      pattern: ^/(?:[^/\s]+/)+$
+                      type: string
+                    fromSource:
+                      items:
+                        description: SourceMatch constrains a rule to processes whose
+                          executable matches Path.
+                        properties:
+                          path:
+                            pattern: ^/(?:[^/\s]+/)*[^/\s]+$
+                            type: string
+                        type: object
+                      type: array
+                    path:
+                      description: Path is the absolute path of the file to match.
+                      pattern: ^/(?:[^/\s]+/)*[^/\s]+$
+                      type: string
+                    readOnly:
+                      description: ReadOnly enforces read-only access when set together
+                        with an Allow action.
+                      type: boolean
+                    recursive:
+                      description: Recursive enables matching in all subdirectories
+                        when Dir is set.
+                      type: boolean
+                  type: object
+                type: array
               ipc:
-                description: IPCRules groups the three inter-process-communication
-                  sub-domains under a single spec.ipc block.
+                description: |-
+                  IPCRules groups the three inter-process-communication sub-domains under a
+                  single spec.ipc block.
                 properties:
                   ptrace:
                     items:
@@ -196,8 +238,8 @@ spec:
                             type: object
                           type: array
                         path:
-                          description: Path is the socket address. Empty matches
-                            any path.
+                          description: Path is the socket address. Empty matches any
+                            path.
                           pattern: ^(@|/)[^\s]+$
                           type: string
                         permission:
@@ -218,47 +260,6 @@ spec:
                       type: object
                     type: array
                 type: object
-              file:
-                items:
-                  description: |-
-                    FileRule restricts file-system access within matched pods.
-                    Exactly one of Path or Dir must be set; Recursive is only valid with Dir.
-                  properties:
-                    action:
-                      enum:
-                      - Allow
-                      - Audit
-                      - Block
-                      type: string
-                    dir:
-                      description: Dir is the absolute directory prefix to match (must
-                        end with /).
-                      pattern: ^/(?:[^/\s]+/)+$
-                      type: string
-                    fromSource:
-                      items:
-                        description: SourceMatch constrains a rule to processes whose
-                          executable matches Path.
-                        properties:
-                          path:
-                            pattern: ^/(?:[^/\s]+/)*[^/\s]+$
-                            type: string
-                        type: object
-                      type: array
-                    path:
-                      description: Path is the absolute path of the file to match.
-                      pattern: ^/(?:[^/\s]+/)*[^/\s]+$
-                      type: string
-                    readOnly:
-                      description: ReadOnly enforces read-only access when set together
-                        with an Allow action.
-                      type: boolean
-                    recursive:
-                      description: Recursive enables matching in all subdirectories
-                        when Dir is set.
-                      type: boolean
-                  type: object
-                type: array
               network:
                 items:
                   description: |-
