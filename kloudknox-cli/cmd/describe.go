@@ -116,8 +116,6 @@ func describeContainer(name, ns string) error {
 }
 
 // describeContainerK8s resolves a container by name across the namespace's pods.
-// The namespace defaults to the global --namespace (kloudknox); pass
-// --namespace to inspect workloads elsewhere.
 func describeContainerK8s(name, ns string) error {
 	kc, err := buildKubeClients()
 	if err != nil {
