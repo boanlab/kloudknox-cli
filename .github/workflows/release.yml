@@ -63,3 +63,22 @@ jobs:
       - name: Push kloudknox-cli Image
         working-directory: kloudknox-cli
         run: make TAG=${{ github.ref_name }} push-image
+
+  release-binaries:
+    needs: [go-fmt, go-lint, go-sec, go-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+      - name: Build static binaries
+        run: make TAG=${{ github.ref_name }} release-binaries
+      - name: Attach binaries to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            kloudknox-cli/dist/*.tar.gz
+            kloudknox-cli/dist/*_checksums.txt

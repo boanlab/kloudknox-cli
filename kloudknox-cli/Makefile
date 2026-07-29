@@ -9,6 +9,12 @@ LDFLAGS = -s -w -X github.com/boanlab/kloudknox-cli/cmd.Version=$(TAG)
 
 GO_FILES = $(shell find . -type f -name '*.go' -not -path './vendor/*')
 
+## RELEASE_PLATFORMS lists the os/arch pairs published as release artifacts.
+## Windows is excluded: `kkctl probe` reads uname and /proc through
+## golang.org/x/sys/unix, which has no Windows implementation.
+RELEASE_PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+DIST_DIR          ?= dist
+
 ## KK_REF selects which branch/tag of the boanlab/KloudKnox family of repos the
 ## embedded deployment manifests are fetched from. Defaults to `main` for
 ## bleeding-edge; pin to a tag (e.g. KK_REF=v0.1.0) for reproducible builds.
@@ -19,6 +25,7 @@ KK_RELAY_RAW   = https://raw.githubusercontent.com/boanlab/kloudknox-relay-serve
 
 .PHONY: all build test gofmt vet golangci-lint gosec clean \
         install-kkctl build-image push-image sync-manifests \
+        release-binaries \
         run-events run-alerts run-logs
 
 all: build
@@ -82,7 +89,26 @@ run-logs:
 	bin/$(PROG_NAME) stream logs
 
 clean:
-	rm -rf bin
+	rm -rf bin $(DIST_DIR)
+
+## release-binaries: build a static binary per RELEASE_PLATFORMS into $(DIST_DIR),
+## each as a .tar.gz alongside a single checksum file. CGO is disabled so the
+## binaries carry no runtime dependency and run on any distro of that os/arch.
+## Pass TAG to stamp the version, e.g. make release-binaries TAG=v0.1.0
+release-binaries:
+	rm -rf $(DIST_DIR)
+	mkdir -p $(DIST_DIR)
+	@for platform in $(RELEASE_PLATFORMS); do \
+	    os=$${platform%%/*}; arch=$${platform##*/}; \
+	    echo "==> $(PROG_NAME) $(TAG) $$os/$$arch"; \
+	    CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch \
+	        go build -trimpath -ldflags '$(LDFLAGS)' -o $(DIST_DIR)/$(PROG_NAME) . || exit 1; \
+	    tar -C $(DIST_DIR) -czf \
+	        $(DIST_DIR)/$(PROG_NAME)_$(TAG)_$${os}_$${arch}.tar.gz $(PROG_NAME) || exit 1; \
+	    rm -f $(DIST_DIR)/$(PROG_NAME); \
+	done
+	cd $(DIST_DIR) && sha256sum *.tar.gz > $(PROG_NAME)_$(TAG)_checksums.txt
+	@echo "==> artifacts in $(DIST_DIR)/"
 
 build-image:
 	docker build -f Dockerfile -t $(IMAGE_NAME):$(TAG) -t $(IMAGE_NAME):latest \

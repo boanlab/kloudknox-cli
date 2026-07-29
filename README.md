@@ -14,6 +14,39 @@ For writing policies, see the [policy authoring guide](https://github.com/boanla
 
 ## Install
 
+### Pre-built binary
+
+Every `v*` tag publishes a `kkctl` binary per platform, plus a `sha256` checksum
+file, as GitHub release assets. The binaries carry no runtime dependency — Linux
+builds are fully static, macOS builds are CGO-free and link only libSystem.
+
+| OS | Architectures |
+|---|---|
+| linux | `amd64`, `arm64` |
+| darwin | `amd64`, `arm64` |
+
+Windows is not published: `kkctl probe` reads uname and `/proc` through
+`golang.org/x/sys/unix`, which has no Windows implementation.
+
+```bash
+VERSION=v0.1.0
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')      # linux | darwin
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+
+BASE=https://github.com/boanlab/kloudknox-cli/releases/download/${VERSION}
+curl -fsSLO ${BASE}/kkctl_${VERSION}_${OS}_${ARCH}.tar.gz
+curl -fsSLO ${BASE}/kkctl_${VERSION}_checksums.txt
+sha256sum --ignore-missing -c kkctl_${VERSION}_checksums.txt
+
+tar -xzf kkctl_${VERSION}_${OS}_${ARCH}.tar.gz
+sudo install -m 0755 kkctl /usr/local/bin/kkctl
+kkctl version
+```
+
+> While the repository is private, `curl` cannot reach the asset. Use the
+> authenticated GitHub CLI instead:
+> `gh release download ${VERSION} --repo boanlab/kloudknox-cli --pattern 'kkctl_*'`
+
 ### From source
 
 ```bash
@@ -21,6 +54,12 @@ git clone https://github.com/boanlab/kloudknox-cli.git
 cd kloudknox-cli/kloudknox-cli
 make                 # builds bin/kkctl
 make install-kkctl   # installs kkctl to $GOBIN (or $HOME/go/bin)
+```
+
+To reproduce the published artifacts locally:
+
+```bash
+make release-binaries TAG=v0.1.0   # writes dist/*.tar.gz + checksums
 ```
 
 > **Note:** `make install-kkctl` writes `kkctl` to `$GOBIN` (or `$HOME/go/bin`), which is not on `sudo`'s `secure_path`. Install into a system path instead:

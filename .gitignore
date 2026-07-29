@@ -1,4 +1,5 @@
 kloudknox-cli/bin/
+kloudknox-cli/dist/
 tests/artifacts/
 
 # Editor / OS
