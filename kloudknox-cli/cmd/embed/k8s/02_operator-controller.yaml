@@ -85,7 +85,7 @@ spec:
         - /kloudknox-operator
         args: []
         image: boanlab/kloudknox-operator:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: kloudknox-operator
         ports: []
         securityContext:

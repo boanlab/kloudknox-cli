@@ -71,7 +71,7 @@ spec:
       containers:
       - name: kkctl
         image: boanlab/kloudknox-cli:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         # Override the kkctl entrypoint so the pod stays up for `kubectl exec`.
         command: ["sleep", "infinity"]
         workingDir: /work

@@ -119,7 +119,7 @@ spec:
       containers:
         - name: webhook
           image: boanlab/kloudknox-apparmor-webhook:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 9443
           volumeMounts:
