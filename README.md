@@ -2,7 +2,7 @@
 
 `kkctl` is the command-line client for [KloudKnox](https://github.com/boanlab/KloudKnox). Use it to install and operate the agent, manage policies, and tail security events, alerts, and logs in real time.
 
-`kkctl` targets both **Kubernetes** and **Docker**: it detects the environment automatically and adapts each command accordingly. Pass `--env k8s` or `--env docker` to force a mode. The one exception is `describe container`, which always queries the Docker socket.
+`kkctl` targets both **Kubernetes** and **Docker**: it detects the environment automatically and adapts each command accordingly. Pass `--env k8s` or `--env docker` to force a mode.
 
 For writing policies, see the [policy authoring guide](https://github.com/boanlab/KloudKnox/blob/main/getting-started/policy-authoring.md). For Docker-mode deployment, see the [docker-mode guide](https://github.com/boanlab/KloudKnox/blob/main/getting-started/docker-mode.md). For recipes, see [use-cases](https://github.com/boanlab/KloudKnox/blob/main/getting-started/use-cases.md).
 
@@ -140,8 +140,7 @@ kkctl stream alerts
 | `kkctl delete policy <name>...` | Delete policies by name |
 | `kkctl get policies [-A] [-o table\|wide\|json\|yaml]` | List policies |
 | `kkctl get nodes [-o table\|json]` | List nodes where KloudKnox is running |
-| `kkctl describe policy\|node <name>` | Show full details for a resource |
-| `kkctl describe container <name>` | Show container details — **Docker mode only** (queries the Docker socket regardless of `--env`) |
+| `kkctl describe policy\|container\|node <name>` | Show full details for a resource |
 | `kkctl policy validate -f <file>` | Validate a policy YAML offline |
 
 ### Labels and selectors

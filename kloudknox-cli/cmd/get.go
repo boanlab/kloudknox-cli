@@ -61,13 +61,28 @@ func runGet(args []string) error {
 }
 
 type policySummary struct {
-	NamespaceName string `json:"NamespaceName"`
-	PolicyName    string `json:"PolicyName"`
-	Action        string `json:"Action"`
-	Status        string `json:"Status"`
-	Process       []any  `json:"Process"`
-	File          []any  `json:"File"`
-	Network       []any  `json:"Network"`
+	NamespaceName string     `json:"NamespaceName"`
+	PolicyName    string     `json:"PolicyName"`
+	Action        string     `json:"Action"`
+	Status        string     `json:"Status"`
+	Process       []any      `json:"Process"`
+	File          []any      `json:"File"`
+	Network       []any      `json:"Network"`
+	Capability    []any      `json:"Capability"`
+	IPC           ipcSummary `json:"IPC"`
+}
+
+// ipcSummary mirrors spec.ipc, which groups its rules by sub-domain rather than
+// holding a flat list like the other rule kinds.
+type ipcSummary struct {
+	Unix   []any `json:"Unix"`
+	Signal []any `json:"Signal"`
+	Ptrace []any `json:"Ptrace"`
+}
+
+// count returns the number of IPC rules across every sub-domain.
+func (i ipcSummary) count() int {
+	return len(i.Unix) + len(i.Signal) + len(i.Ptrace)
 }
 
 func getPolicies(out, policyDir string, allNS bool) error {
@@ -169,6 +184,20 @@ func summarizeUnstructured(obj map[string]any) policySummary {
 		if v, ok := spec["network"].([]any); ok {
 			s.Network = v
 		}
+		if v, ok := spec["capability"].([]any); ok {
+			s.Capability = v
+		}
+		if ipc, ok := spec["ipc"].(map[string]any); ok {
+			if v, ok := ipc["unix"].([]any); ok {
+				s.IPC.Unix = v
+			}
+			if v, ok := ipc["signal"].([]any); ok {
+				s.IPC.Signal = v
+			}
+			if v, ok := ipc["ptrace"].([]any); ok {
+				s.IPC.Ptrace = v
+			}
+		}
 	}
 	if st, ok := obj["status"].(map[string]any); ok {
 		if v, ok := st["status"].(string); ok {
@@ -193,15 +222,16 @@ func renderPolicies(policies []policySummary, out string) error {
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	if out == "wide" {
-		_, _ = fmt.Fprintln(tw, "NAMESPACE\tNAME\tACTION\tSTATUS\tPROCESS\tFILE\tNETWORK")
+		_, _ = fmt.Fprintln(tw, "NAMESPACE\tNAME\tACTION\tSTATUS\tPROCESS\tFILE\tNETWORK\tCAPABILITY\tIPC")
 	} else {
 		_, _ = fmt.Fprintln(tw, "NAMESPACE\tNAME\tACTION\tSTATUS")
 	}
 	for _, p := range policies {
 		if out == "wide" {
-			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%d\t%d\n",
+			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\n",
 				emptyAsDash(p.NamespaceName), p.PolicyName, emptyAsDash(p.Action),
-				emptyAsDash(p.Status), len(p.Process), len(p.File), len(p.Network))
+				emptyAsDash(p.Status), len(p.Process), len(p.File), len(p.Network),
+				len(p.Capability), p.IPC.count())
 		} else {
 			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 				emptyAsDash(p.NamespaceName), p.PolicyName, emptyAsDash(p.Action),

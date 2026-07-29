@@ -37,7 +37,7 @@ func runDescribe(args []string) error {
 	case "policy", "policies":
 		return describePolicy(name, *ns, *policyDir)
 	case "container":
-		return describeContainer(name)
+		return describeContainer(name, *ns)
 	case "node":
 		return describeNode(name, *ns)
 	default:
@@ -100,7 +100,66 @@ func describePolicyDocker(name, dir string) error {
 	return nil
 }
 
-func describeContainer(name string) error {
+func describeContainer(name, ns string) error {
+	env, err := resolvedEnv()
+	if err != nil {
+		return err
+	}
+
+	switch env {
+	case "k8s":
+		return describeContainerK8s(name, ns)
+	case "docker":
+		return describeContainerDocker(name)
+	}
+	return fmt.Errorf("describe: unsupported env %q", env)
+}
+
+// describeContainerK8s resolves a container by name across the namespace's pods.
+// The namespace defaults to the global --namespace (kloudknox); pass
+// --namespace to inspect workloads elsewhere.
+func describeContainerK8s(name, ns string) error {
+	kc, err := buildKubeClients()
+	if err != nil {
+		return fmt.Errorf("describe container: %w", err)
+	}
+
+	pods, err := kc.Typed.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("describe container %s: %w", name, err)
+	}
+
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		for _, c := range pod.Spec.Containers {
+			if c.Name != name {
+				continue
+			}
+			fmt.Printf("Name:      %s\n", c.Name)
+			fmt.Printf("Pod:       %s/%s\n", pod.Namespace, pod.Name)
+			fmt.Printf("Node:      %s\n", pod.Spec.NodeName)
+			fmt.Printf("Image:     %s\n", c.Image)
+			fmt.Printf("Status:    %s\n", pod.Status.Phase)
+			for _, cs := range pod.Status.ContainerStatuses {
+				if cs.Name == name {
+					fmt.Printf("Ready:     %t (restarts: %d)\n", cs.Ready, cs.RestartCount)
+					fmt.Printf("ImageID:   %s\n", cs.ImageID)
+					break
+				}
+			}
+			if len(pod.Labels) > 0 {
+				fmt.Println("Pod labels:")
+				for k, v := range pod.Labels {
+					fmt.Printf("  %s=%s\n", k, v)
+				}
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("describe: container %q not found in namespace %q", name, ns)
+}
+
+func describeContainerDocker(name string) error {
 	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("describe: docker client: %w", err)
