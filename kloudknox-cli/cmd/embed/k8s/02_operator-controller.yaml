@@ -85,6 +85,7 @@ spec:
         - /kloudknox-operator
         args: []
         image: boanlab/kloudknox-operator:latest
+        imagePullPolicy: IfNotPresent
         name: kloudknox-operator
         ports: []
         securityContext:
@@ -100,7 +101,5 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-        volumeMounts: []
-      volumes: []
       serviceAccountName: kloudknox-operator
       terminationGracePeriodSeconds: 10

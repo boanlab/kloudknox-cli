@@ -1,4 +1,17 @@
-# Not needed in BPF-LSM mode; retained for AppArmor fallback nodes.
+# 03_apparmor-webhook.yaml — AppArmor mutating-admission webhook
+#
+# BPF-LSM mode: this manifest is NOT required when all nodes report `bpf` in
+# /sys/kernel/security/lsm.  In that mode KloudKnox uses BPF-LSM hooks
+# directly and does not generate or load AppArmor profiles.  The webhook
+# annotates new pods with a `localhost/kloudknox-*` profile name; if no
+# profile exists the pod will fail to start.
+#
+# AppArmor mode (fallback): apply this manifest before 04_kloudknox.yaml.
+# Requires cert-manager, which provisions the webhook TLS certificate.
+#
+# Mixed clusters (some BPF-LSM nodes, some AppArmor-only nodes): apply this
+# manifest; the webhook runs everywhere but only takes effect on pods scheduled
+# to AppArmor-only nodes.
 ---
 apiVersion: v1
 kind: Namespace

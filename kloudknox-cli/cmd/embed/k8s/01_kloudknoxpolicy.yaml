@@ -17,6 +17,7 @@ spec:
   - name: v1
     schema:
       openAPIV3Schema:
+        description: KloudKnoxPolicy is the Schema for the kloudknoxpolicies API.
         properties:
           apiVersion:
             description: |-
@@ -36,15 +37,192 @@ spec:
           metadata:
             type: object
           spec:
+            description: KloudKnoxPolicySpec defines the desired security policy for
+              a set of pods.
             properties:
               action:
+                description: Action is the default enforcement action for rules that
+                  do not specify one.
                 enum:
                 - Allow
                 - Audit
                 - Block
                 type: string
+              applyToAll:
+                description: |-
+                  ApplyToAll, when true, applies the policy to every container on the
+                  host without requiring a selector. Only honored in docker/hybrid modes;
+                  Kubernetes mode treats it as a validation error because cluster-wide
+                  enforcement should go through namespace selectors instead.
+                type: boolean
+              capability:
+                items:
+                  description: |-
+                    CapabilityRule restricts Linux capability usage within matched pods.
+                    Name accepts either the "CAP_" prefix or the short form (case insensitive);
+                    the validator normalizes both to the canonical CAP_* symbol.
+                  properties:
+                    action:
+                      enum:
+                      - Allow
+                      - Audit
+                      - Block
+                      type: string
+                    fromSource:
+                      description: FromSource restricts the rule to processes whose
+                        executable matches Path.
+                      items:
+                        description: SourceMatch constrains a rule to processes whose
+                          executable matches Path.
+                        properties:
+                          path:
+                            pattern: ^/(?:[^/\s]+/)*[^/\s]+$
+                            type: string
+                        type: object
+                      type: array
+                    name:
+                      description: Name is the Linux capability symbol (e.g. NET_RAW
+                        or CAP_NET_RAW).
+                      pattern: ^(CAP_)?[A-Z0-9_]+$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              ipc:
+                description: IPCRules groups the three inter-process-communication
+                  sub-domains under a single spec.ipc block.
+                properties:
+                  ptrace:
+                    items:
+                      description: |-
+                        PtraceRule restricts ptrace-class operations. "trace"/"read" apply when the
+                        source is the tracer; "traceby"/"readby" apply when the source is the tracee.
+                      properties:
+                        action:
+                          enum:
+                          - Allow
+                          - Audit
+                          - Block
+                          type: string
+                        fromSource:
+                          items:
+                            description: SourceMatch constrains a rule to processes
+                              whose executable matches Path.
+                            properties:
+                              path:
+                                pattern: ^/(?:[^/\s]+/)*[^/\s]+$
+                                type: string
+                            type: object
+                          type: array
+                        permission:
+                          enum:
+                          - trace
+                          - read
+                          - traceby
+                          - readby
+                          type: string
+                        target:
+                          description: Target is the peer binary path (tracer for
+                            *by, tracee otherwise).
+                          pattern: ^/(?:[^/\s]+/)*[^/\s]+$
+                          type: string
+                      required:
+                      - permission
+                      type: object
+                    type: array
+                  signal:
+                    items:
+                      description: |-
+                        SignalRule restricts signal delivery from matched pods. LSM hooks intercept
+                        only the send side, so Permission is fixed to "send".
+                      properties:
+                        action:
+                          enum:
+                          - Allow
+                          - Audit
+                          - Block
+                          type: string
+                        fromSource:
+                          items:
+                            description: SourceMatch constrains a rule to processes
+                              whose executable matches Path.
+                            properties:
+                              path:
+                                pattern: ^/(?:[^/\s]+/)*[^/\s]+$
+                                type: string
+                            type: object
+                          type: array
+                        permission:
+                          enum:
+                          - send
+                          type: string
+                        signals:
+                          description: Signals lists SIGHUP..SIGSYS by symbolic name;
+                            empty matches any signal.
+                          items:
+                            type: string
+                          type: array
+                        target:
+                          description: Target is the absolute path of the recipient
+                            binary. Empty matches any.
+                          pattern: ^/(?:[^/\s]+/)*[^/\s]+$
+                          type: string
+                      required:
+                      - permission
+                      type: object
+                    type: array
+                  unix:
+                    items:
+                      description: |-
+                        UnixRule restricts Unix domain socket operations within matched pods. Path
+                        accepts either a filesystem path ("/var/run/...") or an abstract namespace
+                        socket prefixed with "@".
+                      properties:
+                        action:
+                          enum:
+                          - Allow
+                          - Audit
+                          - Block
+                          type: string
+                        fromSource:
+                          items:
+                            description: SourceMatch constrains a rule to processes
+                              whose executable matches Path.
+                            properties:
+                              path:
+                                pattern: ^/(?:[^/\s]+/)*[^/\s]+$
+                                type: string
+                            type: object
+                          type: array
+                        path:
+                          description: Path is the socket address. Empty matches
+                            any path.
+                          pattern: ^(@|/)[^\s]+$
+                          type: string
+                        permission:
+                          description: |-
+                            Permissions accepts one or more of connect, send, receive, bind, listen.
+                            The webhook coerces single strings to a singleton array.
+                          items:
+                            type: string
+                          type: array
+                        type:
+                          enum:
+                          - stream
+                          - dgram
+                          type: string
+                      required:
+                      - permission
+                      - type
+                      type: object
+                    type: array
+                type: object
               file:
                 items:
+                  description: |-
+                    FileRule restricts file-system access within matched pods.
+                    Exactly one of Path or Dir must be set; Recursive is only valid with Dir.
                   properties:
                     action:
                       enum:
@@ -53,10 +231,14 @@ spec:
                       - Block
                       type: string
                     dir:
+                      description: Dir is the absolute directory prefix to match (must
+                        end with /).
                       pattern: ^/(?:[^/\s]+/)+$
                       type: string
                     fromSource:
                       items:
+                        description: SourceMatch constrains a rule to processes whose
+                          executable matches Path.
                         properties:
                           path:
                             pattern: ^/(?:[^/\s]+/)*[^/\s]+$
@@ -64,16 +246,24 @@ spec:
                         type: object
                       type: array
                     path:
+                      description: Path is the absolute path of the file to match.
                       pattern: ^/(?:[^/\s]+/)*[^/\s]+$
                       type: string
                     readOnly:
+                      description: ReadOnly enforces read-only access when set together
+                        with an Allow action.
                       type: boolean
                     recursive:
+                      description: Recursive enables matching in all subdirectories
+                        when Dir is set.
                       type: boolean
                   type: object
                 type: array
               network:
                 items:
+                  description: |-
+                    NetworkRule restricts ingress or egress traffic within matched pods.
+                    Exactly one of Selector, IPBlock, or FQDN must be set.
                   properties:
                     action:
                       enum:
@@ -82,15 +272,21 @@ spec:
                       - Block
                       type: string
                     direction:
+                      description: Direction specifies whether the rule applies to
+                        incoming or outgoing traffic.
                       enum:
                       - ingress
                       - egress
                       type: string
                     fqdn:
+                      description: FQDN matches a fully-qualified domain name (e.g.
+                        api.example.com).
                       pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
                       type: string
                     fromSource:
                       items:
+                        description: SourceMatch constrains a rule to processes whose
+                          executable matches Path.
                         properties:
                           path:
                             pattern: ^/(?:[^/\s]+/)*[^/\s]+$
@@ -98,17 +294,24 @@ spec:
                         type: object
                       type: array
                     ipBlock:
+                      description: IPBlock matches a remote CIDR range with optional
+                        exceptions.
                       properties:
                         cidr:
                           pattern: ^(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}/([0-9]|[1-2][0-9]|3[0-2])$
                           type: string
                         except:
+                          description: Except lists sub-CIDRs that are excluded from
+                            the match.
                           items:
                             type: string
                           type: array
                       type: object
                     ports:
                       items:
+                        description: |-
+                          Port identifies a transport-layer protocol and port number.
+                          ICMP entries must leave Port as zero (ICMP has no port concept).
                         properties:
                           port:
                             format: int32
@@ -130,6 +333,8 @@ spec:
                     selector:
                       additionalProperties:
                         type: string
+                      description: Selector matches remote pods by label (Kubernetes
+                        mode only).
                       type: object
                   required:
                   - direction
@@ -137,6 +342,9 @@ spec:
                 type: array
               process:
                 items:
+                  description: |-
+                    ProcessRule restricts process execution within matched pods.
+                    Exactly one of Path or Dir must be set; Recursive is only valid with Dir.
                   properties:
                     action:
                       enum:
@@ -145,10 +353,16 @@ spec:
                       - Block
                       type: string
                     dir:
+                      description: Dir is the absolute directory prefix to match (must
+                        end with /).
                       pattern: ^/(?:[^/\s]+/)+$
                       type: string
                     fromSource:
+                      description: FromSource restricts the rule to processes spawned
+                        by one of the listed executables.
                       items:
+                        description: SourceMatch constrains a rule to processes whose
+                          executable matches Path.
                         properties:
                           path:
                             pattern: ^/(?:[^/\s]+/)*[^/\s]+$
@@ -156,21 +370,25 @@ spec:
                         type: object
                       type: array
                     path:
+                      description: Path is the absolute path of the executable to
+                        match (e.g. /bin/bash).
                       pattern: ^/(?:[^/\s]+/)*[^/\s]+$
                       type: string
                     recursive:
+                      description: Recursive enables matching in all subdirectories
+                        when Dir is set.
                       type: boolean
                   type: object
                 type: array
               selector:
                 additionalProperties:
                   type: string
-                minProperties: 1
+                description: Selector maps pod label keys to values. Required unless
+                  ApplyToAll is true.
                 type: object
-            required:
-            - selector
             type: object
           status:
+            description: KloudKnoxPolicyStatus is the observed state of a KloudKnoxPolicy.
             properties:
               status:
                 type: string

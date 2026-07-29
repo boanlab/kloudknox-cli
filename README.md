@@ -2,7 +2,7 @@
 
 `kkctl` is the command-line client for [KloudKnox](https://github.com/boanlab/KloudKnox). Use it to install and operate the agent, manage policies, and tail security events, alerts, and logs in real time.
 
-`kkctl` works the same way whether your workloads run on **Kubernetes** or **Docker** — it detects the target automatically and adapts each command accordingly. Pass `--env k8s` or `--env docker` to force a mode.
+`kkctl` targets both **Kubernetes** and **Docker**: it detects the environment automatically and adapts each command accordingly. Pass `--env k8s` or `--env docker` to force a mode. The one exception is `describe container`, which always queries the Docker socket.
 
 For writing policies, see the [policy authoring guide](https://github.com/boanlab/KloudKnox/blob/main/getting-started/policy-authoring.md). For Docker-mode deployment, see the [docker-mode guide](https://github.com/boanlab/KloudKnox/blob/main/getting-started/docker-mode.md). For recipes, see [use-cases](https://github.com/boanlab/KloudKnox/blob/main/getting-started/use-cases.md).
 
@@ -37,6 +37,12 @@ The `kkctl install` command embeds KloudKnox deployment manifests into the binar
 cd kloudknox-cli
 make sync-manifests KK_REF=main     # or KK_REF=v0.1.0
 ```
+
+Run this whenever the upstream manifests change — in particular the
+`KloudKnoxPolicy` CRD. A stale embedded CRD makes `kkctl install` provision a
+schema that rejects newer policy fields with
+`strict decoding error: unknown field "spec.<field>"`, even though the same
+policy applies cleanly from `deployments/`.
 
 ### Container image
 
@@ -95,7 +101,8 @@ kkctl stream alerts
 | `kkctl delete policy <name>...` | Delete policies by name |
 | `kkctl get policies [-A] [-o table\|wide\|json\|yaml]` | List policies |
 | `kkctl get nodes [-o table\|json]` | List nodes where KloudKnox is running |
-| `kkctl describe policy\|container\|node <name>` | Show full details for a resource |
+| `kkctl describe policy\|node <name>` | Show full details for a resource |
+| `kkctl describe container <name>` | Show container details — **Docker mode only** (queries the Docker socket regardless of `--env`) |
 | `kkctl policy validate -f <file>` | Validate a policy YAML offline |
 
 ### Labels and selectors
@@ -111,9 +118,15 @@ KloudKnox emits one JSON object per line (NDJSON). Reconnection is automatic.
 
 | Command | Description |
 |---|---|
-| `kkctl stream events [filter-flags]` | System-call and behaviour events |
+| `kkctl stream events [filter-flags]` | System events for policy-matched activity |
 | `kkctl stream alerts [filter-flags]` | Policy-triggered alerts |
 | `kkctl stream logs [--level INFO\|WARN\|ERROR]` | Agent logs |
+
+`stream events` only reports pods selected by a `KloudKnoxPolicy` — monitoring is
+gated in the kernel, so with no policy applied the stream stays connected and
+prints nothing. For a pod under a policy, the agent default `-visibility=policy`
+emits only rule-matched events; `-visibility=full` also emits that pod's
+unmatched events.
 
 Filter flags (empty value = match all):
 `--eventName`, `--source`, `--category`, `--operation`, `--resource`,

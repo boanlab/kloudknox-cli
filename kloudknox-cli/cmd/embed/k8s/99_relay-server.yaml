@@ -79,7 +79,7 @@ spec:
       terminationGracePeriodSeconds: 15
       containers:
       - name: relay-server
-        image: boanlab/kloudknox-relay-server:latest
+        image: boanlab/kloudknox-relay-server:v0.1.0
         imagePullPolicy: IfNotPresent
         ports:
         - name: grpc
@@ -94,6 +94,16 @@ spec:
           value: "36890"
         - name: RELAY_PORT
           value: "33900"
+        readinessProbe:
+          grpc:
+            port: 33900
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          grpc:
+            port: 33900
+          periodSeconds: 10
+          failureThreshold: 3
         securityContext:
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
