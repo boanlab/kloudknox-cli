@@ -4,7 +4,7 @@
 
 | Version | Supported |
 |---|---|
-| v0.1.0 (latest) | Yes |
+| v0.1.3 (latest) | Yes |
 | Older commits / forks | No |
 
 Only the latest release and the tip of `main` receive security fixes.

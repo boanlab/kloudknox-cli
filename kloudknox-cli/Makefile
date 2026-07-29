@@ -3,7 +3,7 @@
 
 PROG_NAME  = kkctl
 IMAGE_NAME = boanlab/kloudknox-cli
-TAG        ?= v0.1.0
+TAG        ?= v0.1.3
 
 LDFLAGS = -s -w -X github.com/boanlab/kloudknox-cli/cmd.Version=$(TAG)
 
@@ -17,7 +17,7 @@ DIST_DIR          ?= dist
 
 ## KK_REF selects which branch/tag of the boanlab/KloudKnox family of repos the
 ## embedded deployment manifests are fetched from. Defaults to `main` for
-## bleeding-edge; pin to a tag (e.g. KK_REF=v0.1.0) for reproducible builds.
+## bleeding-edge; pin to a tag (e.g. KK_REF=v0.1.3) for reproducible builds.
 KK_REF ?= main
 KK_RAW         = https://raw.githubusercontent.com/boanlab/KloudKnox/$(KK_REF)/deployments
 KK_WEBHOOK_RAW = https://raw.githubusercontent.com/boanlab/kloudknox-apparmor-webhook/$(KK_REF)/deployments
@@ -94,7 +94,7 @@ clean:
 ## release-binaries: build a static binary per RELEASE_PLATFORMS into $(DIST_DIR),
 ## each as a .tar.gz alongside a single checksum file. CGO is disabled so the
 ## binaries carry no runtime dependency and run on any distro of that os/arch.
-## Pass TAG to stamp the version, e.g. make release-binaries TAG=v0.1.0
+## Pass TAG to stamp the version, e.g. make release-binaries TAG=v0.1.3
 release-binaries:
 	rm -rf $(DIST_DIR)
 	mkdir -p $(DIST_DIR)

@@ -24,7 +24,7 @@ KL_KKCTL_POD_DEPLOY="${KL_KKCTL_POD_DEPLOY:-kloudknox-cli}"
 SELF_MODULE_DIR="${COMP_ROOT}/kloudknox-cli"
 SELF_CLI_YAML="${COMP_ROOT}/deployments/kloudknox-cli.yaml"
 SELF_IMAGE="boanlab/kloudknox-cli"
-SELF_TAG="${SELF_TAG:-v0.1.0}"
+SELF_TAG="${SELF_TAG:-v0.1.3}"
 KKCTL_BIN="${SELF_MODULE_DIR}/bin/kkctl"
 
 # Cross-component (KloudKnox core) manifests from GitHub
@@ -285,7 +285,7 @@ Environment:
   KL_NS                    KloudKnox namespace                       (default: kloudknox)
   KL_KKCTL_MODE            local | pod | both                        (default: both)
   KL_KKCTL_POD_DEPLOY      deployment name for pod mode              (default: kloudknox-cli)
-  SELF_TAG                 self image tag to build                   (default: v0.1.0)
+  SELF_TAG                 self image tag to build                   (default: v0.1.3)
 EOF
 }
 

@@ -29,7 +29,7 @@ Windows is not published: `kkctl probe` reads uname and `/proc` through
 `golang.org/x/sys/unix`, which has no Windows implementation.
 
 ```bash
-VERSION=v0.1.0
+VERSION=v0.1.3
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')      # linux | darwin
 ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 
@@ -59,7 +59,7 @@ make install-kkctl   # installs kkctl to $GOBIN (or $HOME/go/bin)
 To reproduce the published artifacts locally:
 
 ```bash
-make release-binaries TAG=v0.1.0   # writes dist/*.tar.gz + checksums
+make release-binaries TAG=v0.1.3   # writes dist/*.tar.gz + checksums
 ```
 
 > **Note:** `make install-kkctl` writes `kkctl` to `$GOBIN` (or `$HOME/go/bin`), which is not on `sudo`'s `secure_path`. Install into a system path instead:
@@ -74,7 +74,7 @@ The `kkctl install` command embeds KloudKnox deployment manifests into the binar
 
 ```bash
 cd kloudknox-cli
-make sync-manifests KK_REF=main     # or KK_REF=v0.1.0
+make sync-manifests KK_REF=main     # or KK_REF=v0.1.3
 ```
 
 Run this whenever the upstream manifests change — in particular the
@@ -87,8 +87,8 @@ policy applies cleanly from `deployments/`.
 
 ```bash
 cd kloudknox-cli
-make build-image TAG=v0.1.0
-make push-image  TAG=v0.1.0
+make build-image TAG=v0.1.3
+make push-image  TAG=v0.1.3
 ```
 
 ### In-cluster RBAC

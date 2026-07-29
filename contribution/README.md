@@ -35,7 +35,7 @@ make test
 ```bash
 cd kloudknox-cli
 make sync-manifests KK_REF=main       # track bleeding edge
-make sync-manifests KK_REF=v0.1.0     # pin to a tag (preferred for releases)
+make sync-manifests KK_REF=v0.1.3     # pin to a tag (preferred for releases)
 ```
 
 Commit the refreshed YAML alongside your changes.
@@ -44,8 +44,8 @@ Commit the refreshed YAML alongside your changes.
 
 ```bash
 cd kloudknox-cli
-make build-image TAG=v0.1.0
-make push-image  TAG=v0.1.0   # requires registry auth
+make build-image TAG=v0.1.3
+make push-image  TAG=v0.1.3   # requires registry auth
 ```
 
 ## Submitting Changes
