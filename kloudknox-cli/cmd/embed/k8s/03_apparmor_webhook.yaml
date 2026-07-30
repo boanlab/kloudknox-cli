@@ -9,9 +9,11 @@
 # AppArmor mode (fallback): apply this manifest before 04_kloudknox.yaml.
 # Requires cert-manager, which provisions the webhook TLS certificate.
 #
-# Mixed clusters (some BPF-LSM nodes, some AppArmor-only nodes): apply this
-# manifest; the webhook runs everywhere but only takes effect on pods scheduled
-# to AppArmor-only nodes.
+# Mixed clusters (some BPF-LSM nodes, some AppArmor-only nodes): the annotation
+# is injected at admission, before a node is chosen, and only an AppArmor node
+# generates the profile it names.  A pod that lands on a BPF-LSM node therefore
+# fails to start.  Confine the namespaces you label `kloudknox-inject=enabled` to
+# workloads pinned to AppArmor nodes.
 ---
 apiVersion: v1
 kind: Namespace
