@@ -62,8 +62,19 @@ func resolvedEnv() (string, error) {
 	return detectEnv()
 }
 
+// inCluster reports whether kkctl is running as a pod. Kubernetes injects
+// KUBERNETES_SERVICE_HOST into every container and mounts the service account,
+// which is what the client falls back to when no kubeconfig exists.
+func inCluster() bool {
+	if os.Getenv("KUBERNETES_SERVICE_HOST") == "" {
+		return false
+	}
+	_, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	return err == nil
+}
+
 func detectEnv() (string, error) {
-	hasKube := false
+	hasKube := inCluster()
 	if home, err := os.UserHomeDir(); err == nil {
 		if _, err := os.Stat(home + "/.kube/config"); err == nil {
 			hasKube = true

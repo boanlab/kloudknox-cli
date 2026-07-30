@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"os"
 	"testing"
 )
 
@@ -102,4 +103,22 @@ func TestLoadClientConfig_GlobalServerOverride(t *testing.T) {
 			t.Errorf("server = %q, want 10.0.0.1:36890", cfg.Server)
 		}
 	})
+}
+
+// A pod has no kubeconfig and no docker.sock, so detection has to recognise the
+// injected service host and mounted service account or in-cluster kkctl fails.
+func TestInClusterRequiresHostAndToken(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	if inCluster() {
+		t.Error("expected not in-cluster without KUBERNETES_SERVICE_HOST")
+	}
+
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.96.0.1")
+	// The service account path is absent off-cluster, so this must stay false
+	// even with the variable set — a stray env var is not a cluster.
+	if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/token"); err != nil {
+		if inCluster() {
+			t.Error("expected not in-cluster without the service account token")
+		}
+	}
 }
