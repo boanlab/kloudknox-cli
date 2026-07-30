@@ -45,13 +45,17 @@ func k8sManifests() [][]byte {
 	}
 }
 
-// k8sManifestsFor returns manifests in install order. Pass skipWebhook=true on
-// BPF-LSM-only clusters where the AppArmor mutation webhook is not needed.
-func k8sManifestsFor(skipWebhook bool) [][]byte {
+// k8sManifestsWithoutWebhook returns manifests in install order, leaving the
+// AppArmor webhook out. Whether it belongs on a cluster depends on the enforcer
+// the agents pick, which is only known once they run, so it is applied
+// separately via manifestApparmorWebhook.
+func k8sManifestsWithoutWebhook() [][]byte {
 	all := k8sManifests()
-	if !skipWebhook {
-		return all
-	}
 	// manifestWebhook is index 3; drop it while preserving the rest.
 	return append(all[:3:3], all[4:]...)
+}
+
+// manifestApparmorWebhook returns the AppArmor webhook manifest on its own.
+func manifestApparmorWebhook() []byte {
+	return manifestWebhook
 }

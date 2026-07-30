@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/strslice"
 	dockerclient "github.com/docker/docker/client"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,7 +40,7 @@ func runInstall(args []string) error {
 	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	img := fs.String("image", "", "container image to deploy (default: "+defaultImage+")")
 	wait := fs.Bool("wait", true, "wait for rollout to complete (K8s only)")
-	skipWebhook := fs.Bool("skip-apparmor-webhook", false, "skip the AppArmor mutation webhook (use on BPF-LSM-only clusters)")
+	skipWebhook := fs.Bool("skip-apparmor-webhook", false, "force the AppArmor mutation webhook out (default: installed only when an agent uses AppArmor)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -67,12 +68,11 @@ func installK8s(ctx context.Context, img string, wait bool, skipWebhook bool) er
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
+	ns := resolvedNamespace()
 
-	for _, raw := range k8sManifestsFor(skipWebhook) {
+	applyRaw := func(raw []byte) error {
 		if img != defaultImage {
-			raw = bytes.ReplaceAll(raw,
-				[]byte(defaultImage),
-				[]byte(img))
+			raw = bytes.ReplaceAll(raw, []byte(defaultImage), []byte(img))
 		}
 		docs, err := splitYAMLDocs(raw)
 		if err != nil {
@@ -83,17 +83,113 @@ func installK8s(ctx context.Context, img string, wait bool, skipWebhook bool) er
 				return fmt.Errorf("install: apply manifest: %w", err)
 			}
 		}
+		return nil
+	}
+
+	for _, raw := range k8sManifestsWithoutWebhook() {
+		if err := applyRaw(raw); err != nil {
+			return err
+		}
 	}
 	fmt.Println("KloudKnox manifests applied.")
 
 	if wait {
 		fmt.Print("Waiting for DaemonSet rollout...")
-		if err := waitDaemonSet(ctx, kc, resolvedNamespace()); err != nil {
+		if err := waitDaemonSet(ctx, kc, ns); err != nil {
 			return fmt.Errorf("install: %w", err)
 		}
 		fmt.Println(" done.")
 	}
+
+	if skipWebhook {
+		fmt.Println("AppArmor webhook: skipped (--skip-apparmor-webhook).")
+	} else {
+		install, reason := apparmorWebhookNeeded(ctx, kc, ns, wait)
+		if install {
+			if err := applyRaw(manifestApparmorWebhook()); err != nil {
+				return err
+			}
+			fmt.Printf("AppArmor webhook: installed — %s\n", reason)
+		} else {
+			fmt.Printf("AppArmor webhook: skipped — %s\n", reason)
+		}
+	}
+
 	return runStatus(nil)
+}
+
+// apparmorWebhookNeeded reports whether the cluster needs the AppArmor webhook.
+//
+// The webhook annotates pods with a `localhost/kloudknox-*` profile, and agents
+// only generate those under the AppArmor enforcer — on a BPF-LSM node the
+// annotation can never be satisfied and the pod fails to start. Each agent
+// reports its enforcer at startup, so ask them. Anything short of every agent
+// reporting BPF-LSM installs the webhook, so an undetected AppArmor node is
+// never left without injection.
+func apparmorWebhookNeeded(ctx context.Context, kc *kubeClients, ns string, waited bool) (bool, string) {
+	if !waited {
+		return true, "enforcer unknown without --wait"
+	}
+
+	pods, err := kc.Typed.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{
+		LabelSelector: "boanlab.com/app=kloudknox",
+	})
+	if err != nil || len(pods.Items) == 0 {
+		return true, "could not list agent pods"
+	}
+	total := len(pods.Items)
+
+	// The DaemonSet has no readiness probe, so a pod reports Ready as soon as its
+	// container starts — seconds before the enforcer line reaches the log. Poll
+	// until every agent has reported.
+	apparmor, bpf := 0, 0
+	deadline := time.Now().Add(90 * time.Second)
+	for {
+		apparmor, bpf = 0, 0
+		for i := range pods.Items {
+			switch agentEnforcer(ctx, kc, ns, pods.Items[i].Name) {
+			case "apparmor":
+				apparmor++
+			case "bpf":
+				bpf++
+			}
+		}
+		if apparmor+bpf >= total || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(3 * time.Second)
+	}
+
+	switch {
+	case apparmor+bpf < total:
+		return true, fmt.Sprintf("only %d of %d agents reported an enforcer", apparmor+bpf, total)
+	case apparmor == 0:
+		return false, fmt.Sprintf("all %d agents use BPF-LSM", total)
+	default:
+		return true, fmt.Sprintf("%d of %d agents use AppArmor", apparmor, total)
+	}
+}
+
+// agentEnforcer returns "apparmor", "bpf", or "" from an agent's startup log.
+func agentEnforcer(ctx context.Context, kc *kubeClients, ns, pod string) string {
+	stream, err := kc.Typed.CoreV1().Pods(ns).
+		GetLogs(pod, &corev1.PodLogOptions{}).Stream(ctx)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = stream.Close() }()
+
+	data, err := io.ReadAll(stream)
+	if err != nil {
+		return ""
+	}
+	switch {
+	case bytes.Contains(data, []byte("Started AppArmor Enforcer")):
+		return "apparmor"
+	case bytes.Contains(data, []byte("Started BPF-LSM Enforcer")):
+		return "bpf"
+	}
+	return ""
 }
 
 func installDocker(ctx context.Context, img string) error {

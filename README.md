@@ -10,7 +10,7 @@ For writing policies, see the [policy authoring guide](https://github.com/boanla
 
 - Linux host with a running KloudKnox agent (or permission to install one)
 - For building from source: Go 1.24 or newer
-- For `kkctl install` in Kubernetes mode on nodes that rely on AppArmor: [cert-manager](https://cert-manager.io/) in the cluster (used by the bundled AppArmor mutation webhook). BPF-LSM-only clusters can pass `--skip-apparmor-webhook` to drop this dependency.
+- For `kkctl install` in Kubernetes mode on nodes that rely on AppArmor: [cert-manager](https://cert-manager.io/) in the cluster (used by the bundled AppArmor mutation webhook). BPF-LSM-only clusters do not need it — `install` detects the enforcer the agents pick and leaves the webhook out.
 
 ## Install
 
@@ -126,7 +126,7 @@ kkctl stream alerts
 | Command | Description |
 |---|---|
 | `kkctl probe` | Check kernel, BTF, cgroup v2, capabilities, and enforcer mode (BPF LSM vs AppArmor) |
-| `kkctl install [--image <img>] [--wait=true] [--skip-apparmor-webhook]` | Install the KloudKnox agent (pass `--skip-apparmor-webhook` on BPF-LSM-only clusters) |
+| `kkctl install [--image <img>] [--wait=true] [--skip-apparmor-webhook]` | Install the KloudKnox agent. The AppArmor webhook is installed only when an agent reports the AppArmor enforcer; `--skip-apparmor-webhook` forces it out |
 | `kkctl upgrade --image <img> [--dry-run]` | Roll the agent to a new image |
 | `kkctl uninstall [--purge-policies]` | Remove the agent (optionally purge all policies) |
 | `kkctl status [-o table\|json]` | Show agent and node status |
